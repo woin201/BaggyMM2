@@ -1,60 +1,69 @@
--- Baggy MM2 | Delta X Support
--- Поддержка: Delta X, Synapse, KRNL, Fluxus
--- Функции: ESP, KillAura, Автофарм, Телепорты, Настройки игрока
+-- Baggy MM2 | Universal Edition
+-- Поддержка: Delta X, Synapse X, KRNL, Fluxus
+-- GitHub: https://github.com/woin201/BaggyMM2
 
--- Проверка эксплойтов с поддержкой Delta X
-local exploitSupported = false
-local exploitName = "Unknown"
+--[[
+  Улучшенная система проверки эксплойтов
+  с поддержкой Delta X и других исполнителей
+]]
+local executor = {
+    Name = "Unknown",
+    Supported = false,
+    DeltaMode = false
+}
 
+-- Определение эксплойта
 if syn then
-    exploitSupported = true
-    exploitName = "Synapse X"
+    executor.Name = "Synapse X"
+    executor.Supported = true
 elseif KRNL_LOADED then
-    exploitSupported = true
-    exploitName = "KRNL"
+    executor.Name = "KRNL"
+    executor.Supported = true
 elseif fluxus then
-    exploitSupported = true
-    exploitName = "Fluxus"
-elseif DELTA_LOADED then -- Проверка Delta X
-    exploitSupported = true
-    exploitName = "Delta X"
-elseif identifyexecutor and identifyexecutor():find("Delta") then
-    exploitSupported = true
-    exploitName = "Delta X"
+    executor.Name = "Fluxus"
+    executor.Supported = true
+elseif DELTA_LOADED or (identifyexecutor and identifyexecutor():lower():find("delta")) then
+    executor.Name = "Delta X"
+    executor.Supported = true
+    executor.DeltaMode = true
+elseif getexecutorname and getexecutorname():lower():find("delta") then
+    executor.Name = "Delta X"
+    executor.Supported = true
+    executor.DeltaMode = true
 end
 
-if not exploitSupported then
-    game:GetService("Players").LocalPlayer:Kick("Требуется Synapse/KRNL/Fluxus/Delta X")
+if not executor.Supported then
+    game:GetService("Players").LocalPlayer:Kick("Неподдерживаемый эксплойт\nТребуется: Synapse/KRNL/Fluxus/Delta X")
     return
 end
 
--- Загрузка библиотеки с резервными ссылками
+-- Загрузка интерфейса с резервными источниками
 local Rayfield
-local success, err = pcall(function()
-    Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+local uiLoadSuccess, uiError = pcall(function()
+    Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 end)
 
-if not success then
-    -- Резервная библиотека
-    success, err = pcall(function()
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/slrens/UI-Libraries/main/RayfieldBackup.lua'))()
+if not uiLoadSuccess then
+    -- Попытка загрузить резервную версию
+    uiLoadSuccess, uiError = pcall(function()
+        Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/slrens/UI-Libraries/main/RayfieldBackup.lua"))()
     end)
     
-    if not success then
-        game:GetService("Players").LocalPlayer:Kick("Ошибка загрузки библиотеки: "..tostring(err))
+    if not uiLoadSuccess then
+        game:GetService("Players").LocalPlayer:Kick("Ошибка загрузки интерфейса: "..tostring(uiError))
         return
     end
 end
 
--- Создание окна с информацией о эксплойте
+-- Создание главного окна
 local Window = Rayfield:CreateWindow({
-    Name = "Baggy MM2 | "..exploitName,
-    LoadingTitle = "Загрузка интерфейса...",
-    LoadingSubtitle = "Версия 2.2 | Поддержка Delta X",
+    Name = "Baggy MM2 | "..executor.Name,
+    LoadingTitle = "Инициализация...",
+    LoadingSubtitle = "Версия 2.4 | Delta X Support",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "BaggyMM2_Config",
-        FileName = "Settings.json"
+        FileName = tostring(game.PlaceId).."_Settings.json"
     },
     Discord = {
         Enabled = false,
@@ -63,131 +72,227 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
--- Уведомление о загрузке с указанием эксплойта
+-- Уведомление о загрузке
 Rayfield:Notify({
-    Title = "Baggy MM2 Загружен",
-    Content = "Используется: "..exploitName,
-    Duration = 3,
+    Title = "Baggy MM2 Успешно Загружен",
+    Content = "Используется: "..executor.Name,
+    Duration = 4,
     Image = "rbxassetid://4483345998",
 })
 
--- Основные переменные
+-- Основные настройки
 local Settings = {
-    ESP = false,
-    KillAura = false,
-    AutoFarm = false,
-    Speed = 16,
-    Jump = 50,
-    DeltaMode = exploitName == "Delta X" -- Особый режим для Delta
+    ESP = {
+        Enabled = false,
+        Type = "Normal",
+        Color = Color3.fromRGB(255, 50, 50),
+        MaxDistance = 500
+    },
+    Combat = {
+        KillAura = false,
+        Reach = 25,
+        Cooldown = 0.5
+    },
+    Movement = {
+        Speed = 16,
+        JumpPower = 50,
+        Noclip = false
+    },
+    Farming = {
+        Coins = false,
+        Eggs = false,
+        Delay = 1.0
+    }
 }
 
--- Функция ESP с оптимизацией для Delta
-local function EnableESP()
-    if Settings.DeltaMode then
-        -- Оптимизированная версия для Delta
-        for _, player in pairs(game.Players:GetPlayers()) do
-            if player ~= game.Players.LocalPlayer then
-                local character = player.Character or player.CharacterAdded:Wait()
-                local head = character:WaitForChild("Head")
-                
-                local Billboard = Instance.new("BillboardGui")
-                Billboard.Name = "DeltaESP_"..player.Name
-                Billboard.Parent = head
-                Billboard.Size = UDim2.new(3, 0, 3, 0)
-                Billboard.AlwaysOnTop = true
-                
-                local TextLabel = Instance.new("TextLabel")
-                TextLabel.Parent = Billboard
-                TextLabel.Size = UDim2.new(1, 0, 1, 0)
-                TextLabel.Text = player.Name
-                TextLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-                TextLabel.TextScaled = true
-                TextLabel.BackgroundTransparency = 1
-            end
-        end
-    else
-        -- Стандартная версия ESP
-        -- ... (ваш обычный код ESP)
+--[[ 
+  Оптимизированная функция ESP 
+  с поддержкой Delta X
+]]
+local ESP = {
+    Objects = {},
+    UpdateInterval = 1
+}
+
+function ESP:Add(player)
+    if not player.Character then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "BaggyESP_"..player.Name
+    highlight.FillColor = Settings.ESP.Color
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Parent = player.Character
+    
+    self.Objects[player] = highlight
+end
+
+function ESP:Remove(player)
+    if self.Objects[player] then
+        self.Objects[player]:Destroy()
+        self.Objects[player] = nil
     end
 end
 
--- Вкладка "Комбат" с улучшениями для Delta
-local CombatTab = Window:CreateTab("Бой", "rbxassetid://4483345998")
-CombatTab:CreateToggle({
-    Name = "ESP игроков",
-    CurrentValue = Settings.ESP,
-    Callback = function(Value)
-        Settings.ESP = Value
-        if Value then
-            EnableESP()
+function ESP:Update()
+    for player, highlight in pairs(self.Objects) do
+        if not player or not player.Character or not highlight then
+            self:Remove(player)
         else
-            -- Код отключения ESP
+            local distance = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - 
+                            player.Character.HumanoidRootPart.Position).Magnitude
+            highlight.Enabled = distance <= Settings.ESP.MaxDistance
         end
-        Rayfield:Notify({
-            Title = "ESP "..(Value and "Включен" or "Выключен"),
-            Content = "Режим: "..exploitName,
-            Duration = 2,
-        })
-    end,
-})
-
--- Особые функции для Delta X
-if Settings.DeltaMode then
-    CombatTab:CreateLabel("Режим Delta X активен")
-    CombatTab:CreateToggle({
-        Name = "Оптимизированный KillAura",
-        CurrentValue = false,
-        Callback = function(Value)
-            -- Специальная реализация для Delta
-        end,
-    })
+    end
 end
 
--- Автофарм с защитой от античита
-local FarmTab = Window:CreateTab("Фарм", "rbxassetid://4483345998")
-FarmTab:CreateToggle({
-    Name = "Автофарм монет",
-    CurrentValue = Settings.AutoFarm,
-    Callback = function(Value)
-        Settings.AutoFarm = Value
-        if Value then
+-- Вкладка "Игрок"
+local PlayerTab = Window:CreateTab("Игрок", "rbxassetid://3926305904")
+local MovementSection = PlayerTab:CreateSection("Передвижение")
+
+MovementSection:CreateSlider({
+    Name = "Скорость",
+    Range = {16, 100},
+    Increment = 1,
+    Suffix = "studs",
+    CurrentValue = Settings.Movement.Speed,
+    Callback = function(value)
+        Settings.Movement.Speed = value
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+        end
+    end
+})
+
+MovementSection:CreateSlider({
+    Name = "Сила прыжка",
+    Range = {50, 200},
+    Increment = 5,
+    Suffix = "power",
+    CurrentValue = Settings.Movement.JumpPower,
+    Callback = function(value)
+        Settings.Movement.JumpPower = value
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+        end
+    end
+})
+
+-- Вкладка "Визуал"
+local VisualTab = Window:CreateTab("Визуал", "rbxassetid://3926307971")
+local ESPSection = VisualTab:CreateSection("ESP")
+
+ESPSection:CreateToggle({
+    Name = "ESP игроков",
+    CurrentValue = Settings.ESP.Enabled,
+    Callback = function(state)
+        Settings.ESP.Enabled = state
+        if state then
+            -- Включение ESP для всех игроков
+            for _, player in ipairs(game.Players:GetPlayers()) do
+                if player ~= game.Players.LocalPlayer then
+                    ESP:Add(player)
+                end
+            end
+            
+            -- Обработка новых игроков
+            game.Players.PlayerAdded:Connect(function(player)
+                if Settings.ESP.Enabled then
+                    player.CharacterAdded:Connect(function()
+                        ESP:Add(player)
+                    end)
+                end
+            end)
+            
+            -- Цикл обновления
             spawn(function()
-                while Settings.AutoFarm do
-                    -- Безопасный фарм с задержками
-                    task.wait(Settings.DeltaMode and 0.7 or 0.5) -- Большая задержка для Delta
-                    -- Код фарма
+                while Settings.ESP.Enabled do
+                    ESP:Update()
+                    task.wait(ESP.UpdateInterval)
+                end
+            end)
+        else
+            -- Отключение ESP
+            for player in pairs(ESP.Objects) do
+                ESP:Remove(player)
+            end
+        end
+    end
+})
+
+-- Вкладка "Комбат"
+local CombatTab = Window:CreateTab("Комбат", "rbxassetid://3926307971")
+local KillAuraSection = CombatTab:CreateSection("Kill Aura")
+
+KillAuraSection:CreateToggle({
+    Name = "Kill Aura",
+    CurrentValue = Settings.Combat.KillAura,
+    Callback = function(state)
+        Settings.Combat.KillAura = state
+        if state then
+            spawn(function()
+                while Settings.Combat.KillAura do
+                    task.wait(Settings.Combat.Cooldown)
+                    
+                    local character = game.Players.LocalPlayer.Character
+                    if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                        local knife = character:FindFirstChildOfClass("Tool") or character:FindFirstChild("Knife")
+                        
+                        if knife then
+                            for _, player in ipairs(game.Players:GetPlayers()) do
+                                if player ~= game.Players.LocalPlayer and player.Character then
+                                    local targetChar = player.Character
+                                    if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+                                        local distance = (character.HumanoidRootPart.Position - 
+                                                       targetChar.HumanoidRootPart.Position).Magnitude
+                                        
+                                        if distance <= Settings.Combat.Reach then
+                                            knife:Activate()
+                                            task.wait(0.1)
+                                            knife:Deactivate()
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
                 end
             end)
         end
-    end,
+    end
 })
 
--- Телепорты с проверкой безопасности
-local TeleportTab = Window:CreateTab("Телепорты", "rbxassetid://4483345998")
-TeleportTab:CreateButton({
-    Name = "Телепорт к убийце",
-    Callback = function()
-        if Settings.DeltaMode then
-            -- Безопасный телепорт для Delta
-            task.wait(0.3)
-        end
-        -- Код телепорта
-    end,
-})
-
--- Функция закрытия для Delta
-local closeKey = Settings.DeltaMode and Enum.KeyCode.F4 or Enum.KeyCode.RightShift
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == closeKey then
-        Window:Destroy()
+-- Защита от ошибок
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    if Settings.Movement.Speed then
+        character:WaitForChild("Humanoid").WalkSpeed = Settings.Movement.Speed
+    end
+    if Settings.Movement.JumpPower then
+        character:WaitForChild("Humanoid").JumpPower = Settings.Movement.JumpPower
     end
 end)
 
--- Информация о версии
-Window:CreateLabel("Версия 2.2 | Поддержка Delta X")
-Window:CreateLabel("Разработчик: Baggy Team")
+-- Клавиша закрытия
+local closeKey = executor.DeltaMode and Enum.KeyCode.F4 or Enum.KeyCode.RightShift
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == closeKey then
+        Window:Destroy()
+        Rayfield:Notify({
+            Title = "Baggy MM2",
+            Content = "Меню закрыто",
+            Duration = 2,
+        })
+    end
+end)
 
--- Защита от краша при ошибках
-pcall(function()
-    -- Инициализация дополнительных функций
+-- Авто-сохранение настроек
+spawn(function()
+    while task.wait(30) do
+        pcall(function()
+            if Window then
+                Rayfield:SaveConfiguration()
+            end
+        end)
+    end
 end)
