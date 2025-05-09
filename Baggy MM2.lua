@@ -1,169 +1,36 @@
---[[
-  Baggy MM2 Ultimate | Full 300 Lines Version
-  Включает ВСЕ функции оригинального SadLunov MM2:
-  - ESP с настройкой цвета
-  - Kill Aura с регулируемой дальностью
-  - Полная система телепортов
-  - Автофарм монет и яиц
-  - Настройки персонажа
-  - Интеграция с инвентарем
-  - Защита от античита
-]]
+-- Baggy MM2 | Версия UI как на Cxlt GUI -- Поддержка: Delta X, KRNL, Xeno -- Автор: @woin201 + ChatGPT
 
--- Инициализация
-local Rayfield = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+-- Библиотека для UI local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/RobloxScriptHub/UI-Libs/main/CxltHub.lua"))() local Window = Library:Window("Baggy MM2", Color3.fromRGB(44, 120, 224), Enum.KeyCode.RightControl)
 
--- Конфигурация
-local Config = {
-    ESP = {
-        Enabled = false,
-        Color = Color3.fromRGB(255, 50, 50),
-        UpdateDelay = 0.5,
-        MaxDistance = 2000
-    },
-    Combat = {
-        KillAura = false,
-        Reach = 25,
-        Cooldown = 0.3,
-        AutoEquip = true
-    },
-    Movement = {
-        Speed = 16,
-        JumpPower = 50,
-        Noclip = false,
-        Fly = false
-    },
-    Farming = {
-        Coins = false,
-        CoinsDelay = 0.3,
-        Eggs = false,
-        EggsDelay = 1,
-        AntiAfk = true
-    },
-    Teleports = {
-        Murderer = false,
-        Sheriff = false,
-        SecretRoom = false
-    },
-    Visuals = {
-        ThirdPerson = false,
-        FOV = 70
-    }
-}
+-- Флаги local ESP, KillAura, AutoFarm, Invis = false, false, false, false
 
--- Кэш объектов
-local Cache = {
-    ESPHandles = {},
-    Connections = {},
-    Coins = {},
-    Eggs = {}
-}
+-- ESP local function EnableESP() for _, player in pairs(game.Players:GetPlayers()) do if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then local Billboard = Instance.new("BillboardGui", player.Character.Head) Billboard.Name = "BaggyESP" Billboard.Size = UDim2.new(0, 100, 0, 40) Billboard.AlwaysOnTop = true local Label = Instance.new("TextLabel", Billboard) Label.Size = UDim2.new(1, 0, 1, 0) Label.BackgroundTransparency = 1 Label.Text = player.Name Label.TextColor3 = Color3.new(1, 0, 0) Label.TextScaled = true end end end
 
--- UI Функции
-local function CreateUI()
-    local Window = Rayfield:CreateWindow({
-        Name = "BAGGY MM2",
-        LoadingTitle = "Загрузка...",
-        LoadingSubtitle = "Полная версия | 300 строк",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "BaggyMM2",
-            FileName = "Config_"..game.PlaceId..".json"
-        },
-        Discord = {
-            Enabled = false
-        }
-    })
+-- KillAura local function StartKillAura() task.spawn(function() while KillAura and task.wait() do local char = game.Players.LocalPlayer.Character local knife = char and char:FindFirstChildOfClass("Tool") if knife then for _, plr in pairs(game.Players:GetPlayers()) do if plr ~= game.Players.LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then local dist = (char.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude if dist <= 15 then game.Players.LocalPlayer.Character:SetPrimaryPartCFrame(plr.Character.HumanoidRootPart.CFrame) knife:Activate() end end end end end end) end
 
-    -- Вкладка Основное
-    local MainTab = Window:CreateTab("Основное", "rbxassetid://3926305904")
-    local PlayerSection = MainTab:CreateSection("Настройки игрока")
-    
-    PlayerSection:CreateSlider({
-        Name = "Скорость передвижения",
-        Range = {16, 100},
-        Increment = 1,
-        CurrentValue = Config.Movement.Speed,
-        Callback = function(Value)
-            Config.Movement.Speed = Value
-            if LocalPlayer.Character then
-                LocalPlayer.Character.Humanoid.WalkSpeed = Value
-            end
-        end
-    })
+-- AutoFarm local function StartAutoFarm() task.spawn(function() while AutoFarm and task.wait(1) do for _, obj in pairs(workspace:GetDescendants()) do if obj:IsA("Part") and obj.Name == "Coin" then game.Players.LocalPlayer.Character:PivotTo(obj.CFrame) end end end end) end
 
-    -- Вкладка Бой
-    local CombatTab = Window:CreateTab("Бой", "rbxassetid://3926307971")
-    local CombatSection = CombatTab:CreateSection("Боевые функции")
-    
-    CombatSection:CreateToggle({
-        Name = "ESP игроков",
-        CurrentValue = Config.ESP.Enabled,
-        Callback = function(State)
-            Config.ESP.Enabled = State
-            if State then
-                spawn(UpdateESP)
-            else
-                ClearESP()
-            end
-        end
-    })
+-- Телепорт к роли local function TeleportToRole(role) for _, player in pairs(game.Players:GetPlayers()) do if player ~= game.Players.LocalPlayer and player.Character then local hasRole = (role == "Murder" and player.Backpack:FindFirstChild("Knife")) or (role == "Sheriff" and player.Backpack:FindFirstChild("Gun")) if hasRole then game.Players.LocalPlayer.Character:PivotTo(player.Character:GetPivot() + Vector3.new(0, 5, 0)) end end end end
 
-    -- Остальные вкладки и функции...
-    
-    return Window
-end
+-- Невидимость local function SetInvisible() game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(9999, 9999, 9999) end
 
--- Основные функции
-local function UpdateESP()
-    while Config.ESP.Enabled do
-        task.wait(Config.ESP.UpdateDelay)
-        
-        for _, Player in ipairs(Players:GetPlayers()) do
-            if Player ~= LocalPlayer and Player.Character then
-                -- Логика ESP...
-            end
-        end
-    end
-end
+-- Сохраняем GUI настройки (если поддерживается) if writefile and readfile then local settings = {ESP = ESP, KillAura = KillAura, AutoFarm = AutoFarm, Invis = Invis} writefile("BaggyMM2_Settings.json", game:GetService("HttpService"):JSONEncode(settings)) end
 
-local function RunKillAura()
-    while Config.Combat.KillAura do
-        task.wait(Config.Combat.Cooldown)
-        -- Логика Kill Aura...
-    end
-end
+-- Страницы и вкладки local MainTab = Window:Tab("Главное") MainTab:Toggle("ESP", false, function(state) ESP = state if state then EnableESP() end end)
 
--- Инициализация
-local function Init()
-    -- Защита от античита
-    if not (syn or KRNL_LOADED or fluxus or is_sirhurt_closure or pebc_execute) then
-        LocalPlayer:Kick("Требуется поддерживаемый эксплойт")
-        return
-    end
+MainTab:Toggle("KillAura", false, function(state) KillAura = state if state then StartKillAura() end end)
 
-    -- Создание интерфейса
-    local Window = CreateUI()
+MainTab:Toggle("AutoFarm Coins", false, function(state) AutoFarm = state if state then StartAutoFarm() end end)
 
-    -- Автозагрузка настроек
-    LocalPlayer.CharacterAdded:Connect(function(Character)
-        local Humanoid = Character:WaitForChild("Humanoid")
-        Humanoid.WalkSpeed = Config.Movement.Speed
-        Humanoid.JumpPower = Config.Movement.JumpPower
-    end)
+MainTab:Button("TP к Murder", function() TeleportToRole("Murder") end)
 
-    -- Уведомление
-    Rayfield:Notify({
-        Title = "Baggy MM2 загружен",
-        Content = "Все функции активны",
-        Duration = 6,
-        Image = "rbxassetid://4483345998"
-    })
-end
+MainTab:Button("TP к Sheriff", function() TeleportToRole("Sheriff") end)
 
--- Запуск
-Init()
+MainTab:Button("TP в Лобби", function() if workspace:FindFirstChild("Lobby") then game.Players.LocalPlayer.Character:PivotTo(workspace.Lobby.Spawn.CFrame) end end)
+
+MainTab:Button("Невидимость", function() SetInvisible() end)
+
+MainTab:Label("Telegram: @AKKAYNT_CKAMEPA")
+
+-- Готово!
+
